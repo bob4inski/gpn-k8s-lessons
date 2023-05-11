@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prometheus
+spec:
+  containers:
+  - name: prometheus
+    image: bob4inski/prometheus:latest
+    ports:
+    - containerPort: 4567
+  
