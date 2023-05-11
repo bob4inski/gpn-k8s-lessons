@@ -59,7 +59,86 @@ appVersion: "1.16.0"
 
 А теперь пойдем по блокам 
 
+```
+prometheus:  - создаем блок для прометея (так удобнее)
+    deployment:  
+        name: 
+        replicas: 2     - определяем сколько реплик будет
+    service:          - таких сервисов может быть сколько угодно
+        type: NodePort  - используем тип NodePort чтобы в k8s создать сервис
+        port: 9090      - слушает на порту 9090 (это default порт для прометея)
+```
 
+```
+    image:  - тут и используем образ из dockerhub
+        repository: bob4inski/prometheus
+        pullPolicy: IfNotPresent
+        tag: "latest"
+```
 
+```
+    hpa: - блок для масштабирования
+        enabled: false - включаем или выключаем 
+        name:
+        minReplicas: 1
+        maxReplicas: 3
+        targetCPUUtilizationPercentage: 50       
+```
 
+Остальное оставляем как есть вот конечный [файл](https://github.com/bob4inski/gpn-k8s-lessons/blob/main/mychart/values.yaml)
 
+Далее смотрим все файлы в папке templates и сверяем ссылки на переменные с названиями в файле `values.yaml`
+(Ориентироваться нужно по названиям файлов в папке и названиям в файле)
+
+К примеру в файле [deployment.yml](templates/deployment.yaml#L30)
+
+По дефолту блок такой
+```
+ containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9090 #меняем порт на тот, на котором должен работать контейнер (его и слушает сервис)
+              protocol: TCP
+```
+
+Нас интересует вот эта переменная `image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"`
+
+Сами переменные - это путь до переменной в файле `values.yaml`
+
+`{{ .Values.image.repository }}`
+
+Смотрим за что отвечает эта переменная по названию, сравниваем  и видим, что в `values.yaml` image находится вот тут
+```
+prometheus:
+    ...
+    image: 
+        repository: bob4inski/prometheus
+        pullPolicy: IfNotPresent
+        tag: "latest"
+```
+
+Значит нужно использовать вместо `{{ .Values.image.repository }}`
+
+Вот это `{{ .Values.prometheus.image.repository }}`
+
+И так по всем переменым
+
+Как только думаем что все сделано, то используем команду  ``helm lint mychart``
+
+По логам можно будет понять что не так написано и поправить
+
+Потом пишем уже другую команду  для проверки как встанет чарт ``helm install mychart  --dry-run --debug``
+
+И только тогда, когда мы видим что все ок, то запускаем  установку `helm install mychart`
+
+#  Прописываем команду чтобы посмотреть по какому порту подключатся
+`kubectl get svc`
+
+`minikube ip` чтобы посмотреть ip по корому можно идти на прометей
+
+И дальше переходит по этому ip и используем порт сервиса
